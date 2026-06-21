@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>連絡事項プリント作成</title>
+
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#2c5f8a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="連絡プリント">
+<link rel="apple-touch-icon" href="./icon-192.svg">
+
+<style>
+  :root {
+    --primary: #2c5f8a;
+    --primary-light: #e8f0f8;
+    --border: #c0c0c0;
+    --bg: #f7f8fa;
+    --danger: #c0392b;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { height: 100%; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo UI", sans-serif;
+    background: var(--bg);
+    color: #222;
+    line-height: 1.6;
+    min-height: 100%;
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* ===== 入力画面 ===== */
+  .app-header {
+    background: var(--primary);
+    color: #fff;
+    padding: 14px 16px;
+    padding-top: calc(14px + var(--safe-top));
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .app-header h1 { font-size: 17px; font-weight: 600; }
+
+  .editor {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 12px;
+    padding-bottom: calc(12px + var(--safe-bottom));
+  }
+
+  .section {
+    background: #fff;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .section-title {
+    background: var(--primary-light);
+    padding: 10px 14px;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--primary);
+    border-bottom: 1px solid #d8e4f0;
+  }
+  .section-body { padding: 12px 14px; }
+
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 4px;
+    margin-top: 10px;
+  }
+  label:first-child { margin-top: 0; }
+
+  input[type="text"],
+  input[type="date"],
+  textarea,
+  select {
+    width: 100%;
+    padding: 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    font-size: 16px;
+    font-family: inherit;
+    background: #fff;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(44,95,138,0.12);
+  }
+  textarea { resize: vertical; min-height: 60px; }
+
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; min-width: 0; }
+
+  /* 時間割 */
+  .timetable { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .timetable th, .timetable td {
+    border: 1px solid #ddd;
+    padding: 6px 8px;
+    font-size: 14px;
+    text-align: center;
+  }
+  .timetable th {
+    background: var(--primary-light);
+    font-weight: 600;
+    color: var(--primary);
+    width: 56px;
+    white-space: nowrap;
+  }
+  .timetable td { padding: 2px 4px; }
+  .timetable input {
+    border: none;
+    text-align: center;
+    padding: 8px 4px;
+    font-size: 15px;
+    width: 100%;
+    background: transparent;
+  }
+  .timetable input:focus {
+    background: #fffde7;
+    box-shadow: none;
+  }
+
+  /* 連絡事項リスト */
+  .item-list { list-style: none; }
+  .item-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+    background: #fafbfc;
+    border: 1px solid #e8e8e8;
+    border-radius: 6px;
+    padding: 8px;
+  }
+  .item-list textarea {
+    flex: 1;
+    min-height: 44px;
+    border: 1px solid #ddd;
+    font-size: 15px;
+  }
+  .btn-remove {
+    background: none;
+    border: none;
+    color: var(--danger);
+    font-size: 22px;
+    cursor: pointer;
+    padding: 6px 8px;
+    line-height: 1;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--primary-light);
+    color: var(--primary);
+    border: 1.5px dashed var(--primary);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    justify-content: center;
+    margin-top: 4px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-add:active { background: #d0e2f2; }
+
+  /* 優先度 */
+  .priority-selector {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .priority-selector button {
+    flex: 1;
+    padding: 8px 4px;
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    background: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 600;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .priority-selector button.active-normal {
+    background: #e8f5e9; border-color: #4caf50; color: #2e7d32;
+  }
+  .priority-selector button.active-important {
+    background: #fff3e0; border-color: #ff9800; color: #e65100;
+  }
+  .priority-selector button.active-urgent {
+    background: #ffebee; border-color: #f44336; color: #c62828;
+  }
+
+  /* アクションボタン */
+  .actions {
+    display: flex;
+    gap: 10px;
+    margin: 16px 0 10px;
+  }
+  .btn {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-preview {
+    background: var(--primary);
+    color: #fff;
+  }
+  .btn-preview:active { background: #1e4a6e; }
+  .btn-save {
+    background: #e0e0e0;
+    color: #333;
+  }
+  .btn-save:active { background: #ccc; }
+  .btn-load {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+  .btn-load:active { background: #c8e6c9; }
+
+  /* ===== プレビュー / 印刷画面 ===== */
+  .preview-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #f0f0f0;
+    z-index: 200;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .preview-overlay.show { display: block; }
+
+  .preview-toolbar {
+    background: #333;
+    color: #fff;
+    padding: 10px 16px;
+    padding-top: calc(10px + var(--safe-top));
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 201;
+  }
+  .preview-toolbar button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-back { background: #666; color: #fff; }
+  .btn-print { background: #4caf50; color: #fff; }
+
+  /* 印刷用紙面 */
+  .print-page {
+    width: 210mm;
+    min-height: 297mm;
+    background: #fff;
+    margin: 16px auto;
+    padding: 18mm 15mm;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+    font-size: 11pt;
+    line-height: 1.7;
+    color: #000;
+  }
+
+  .print-page .p-header {
+    text-align: center;
+    border-bottom: 2.5px solid #000;
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+  }
+  .print-page .p-header h2 {
+    font-size: 18pt;
+    letter-spacing: 3px;
+    margin-bottom: 4px;
+  }
+  .print-page .p-meta {
+    font-size: 10pt;
+    color: #333;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .print-page .p-section {
+    margin-bottom: 14px;
+  }
+  .print-page .p-section-title {
+    font-size: 12pt;
+    font-weight: 700;
+    background: #f0f0f0;
+    padding: 4px 10px;
+    border-left: 4px solid #333;
+    margin-bottom: 6px;
+  }
+
+  .print-page .p-timetable {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 6px 0;
+  }
+  .print-page .p-timetable th,
+  .print-page .p-timetable td {
+    border: 1px solid #333;
+    padding: 5px 10px;
+    text-align: center;
+    font-size: 10.5pt;
+  }
+  .print-page .p-timetable th {
+    background: #eee;
+    font-weight: 700;
+    width: 50px;
+  }
+
+  .print-page .p-items { list-style: none; padding: 0; }
+  .print-page .p-items li {
+    padding: 5px 0 5px 18px;
+    position: relative;
+    border-bottom: 1px dotted #ccc;
+    font-size: 10.5pt;
+    white-space: pre-wrap;
+  }
+  .print-page .p-items li::before {
+    content: "\25A0";
+    position: absolute;
+    left: 0;
+    color: #333;
+  }
+  .print-page .p-items li.important { font-weight: 700; }
+  .print-page .p-items li.important::before { content: "\2605"; color: #d84315; }
+  .print-page .p-items li.urgent {
+    font-weight: 700;
+    background: #fff8f0;
+    border: 1px solid #e65100;
+    border-radius: 3px;
+    padding-left: 22px;
+    margin: 2px 0;
+  }
+  .print-page .p-items li.urgent::before { content: "\203C"; color: #c62828; font-size: 12pt; }
+
+  .print-page .p-note {
+    background: #fffde7;
+    border: 1px solid #f9a825;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 10pt;
+    margin-top: 4px;
+    white-space: pre-wrap;
+  }
+
+  .print-page .p-footer {
+    margin-top: 20px;
+    padding-top: 10px;
+    border-top: 1px solid #999;
+    font-size: 9pt;
+    color: #666;
+    text-align: right;
+  }
+
+  /* 確認欄 */
+  .print-page .p-confirm {
+    margin-top: 18px;
+    border: 1.5px solid #333;
+    border-radius: 4px;
+    padding: 10px 14px;
+  }
+  .print-page .p-confirm-title {
+    font-weight: 700;
+    font-size: 10.5pt;
+    margin-bottom: 6px;
+  }
+  .print-page .p-confirm-boxes {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .print-page .p-confirm-box {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10pt;
+  }
+  .print-page .p-confirm-box .checkbox {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid #333;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* 通知トースト */
+  .toast {
+    position: fixed;
+    bottom: calc(30px + var(--safe-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 10px 24px;
+    border-radius: 20px;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 999;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+
+  /* インストールバナー */
+  .install-banner {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0; right: 0;
+    background: #fff;
+    border-top: 1px solid #ddd;
+    padding: 12px 16px;
+    padding-bottom: calc(12px + var(--safe-bottom));
+    z-index: 150;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+  }
+  .install-banner.show { display: flex; align-items: center; gap: 12px; }
+  .install-banner-text {
+    flex: 1;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .install-banner-text strong { display: block; font-size: 14px; }
+  .install-banner button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .install-banner .btn-install {
+    background: var(--primary);
+    color: #fff;
+  }
+  .install-banner .btn-dismiss {
+    background: #eee;
+    color: #666;
+    padding: 10px 14px;
+  }
+
+  /* 下書き一覧モーダル */
+  .draft-modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 300;
+    justify-content: center;
+    align-items: flex-end;
+  }
+  .draft-modal.show { display: flex; }
+  .draft-modal-content {
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+    width: 100%;
+    max-width: 640px;
+    max-height: 70vh;
+    overflow-y: auto;
+    padding-bottom: var(--safe-bottom);
+  }
+  .draft-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid #eee;
+    position: sticky;
+    top: 0;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+  }
+  .draft-modal-header h3 { font-size: 16px; }
+  .draft-modal-header button {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+    padding: 4px 8px;
+  }
+  .draft-list { list-style: none; }
+  .draft-list li {
+    padding: 14px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .draft-list li:active { background: #f5f5f5; }
+  .draft-list-info { font-size: 14px; }
+  .draft-list-info small { display: block; color: #888; font-size: 12px; }
+  .draft-list-del {
+    background: none;
+    border: none;
+    color: var(--danger);
+    font-size: 18px;
+    padding: 8px;
+    cursor: pointer;
+  }
+  .draft-empty {
+    padding: 40px 16px;
+    text-align: center;
+    color: #999;
+    font-size: 14px;
+  }
+
+  /* ===== 印刷時 ===== */
+  @media print {
+    body { background: #fff; padding: 0; }
+    .app-header, .editor, .preview-toolbar, .toast,
+    .install-banner, .draft-modal { display: none !important; }
+    .preview-overlay { position: static; background: none; display: block !important; }
+    .print-page {
+      margin: 0;
+      padding: 12mm 15mm;
+      box-shadow: none;
+      width: 100%;
+      min-height: auto;
+      page-break-after: avoid;
+    }
+  }
+
+  /* スマホ用調整 */
+  @media (max-width: 480px) {
+    .print-page {
+      width: 100%;
+      padding: 12px;
+      font-size: 10pt;
+      min-height: auto;
+      margin: 12px auto;
+    }
+    .row { flex-direction: column; gap: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== 入力画面 ===== -->
+<header class="app-header">
+  <h1>連絡事項プリント作成</h1>
+</header>
+
+<div class="editor" id="editor">
+
+  <!-- 基本情報 -->
+  <div class="section">
+    <div class="section-title">基本情報</div>
+    <div class="section-body">
+      <div class="row">
+        <div>
+          <label for="printDate">日付</label>
+          <input type="date" id="printDate">
+        </div>
+        <div>
+          <label for="dayOfWeek">曜日</label>
+          <select id="dayOfWeek">
+            <option value="月">月曜日</option>
+            <option value="火">火曜日</option>
+            <option value="水">水曜日</option>
+            <option value="木">木曜日</option>
+            <option value="金">金曜日</option>
+            <option value="土">土曜日</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="className">クラス</label>
+          <input type="text" id="className" placeholder="例: 2年3組">
+        </div>
+        <div>
+          <label for="teacherName">担任名</label>
+          <input type="text" id="teacherName" placeholder="例: 山田">
+        </div>
+      </div>
+      <label for="subTeacher">副担任名</label>
+      <input type="text" id="subTeacher" placeholder="例: 佐藤先生">
+    </div>
+  </div>
+
+  <!-- 時間割 -->
+  <div class="section">
+    <div class="section-title">時間割</div>
+    <div class="section-body">
+      <table class="timetable">
+        <tr><th>1限</th><td><input type="text" id="p1" placeholder="教科・内容"></td></tr>
+        <tr><th>2限</th><td><input type="text" id="p2" placeholder="教科・内容"></td></tr>
+        <tr><th>3限</th><td><input type="text" id="p3" placeholder="教科・内容"></td></tr>
+        <tr><th>4限</th><td><input type="text" id="p4" placeholder="教科・内容"></td></tr>
+        <tr><th>昼休</th><td><input type="text" id="pLunch" placeholder="特記事項があれば"></td></tr>
+        <tr><th>5限</th><td><input type="text" id="p5" placeholder="教科・内容"></td></tr>
+        <tr><th>6限</th><td><input type="text" id="p6" placeholder="教科・内容"></td></tr>
+        <tr><th>放課後</th><td><input type="text" id="pAfter" placeholder="清掃・部活動など"></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- 連絡事項 -->
+  <div class="section">
+    <div class="section-title">連絡事項</div>
+    <div class="section-body">
+      <ul class="item-list" id="itemList"></ul>
+      <button class="btn-add" onclick="addItem()">＋ 連絡事項を追加</button>
+    </div>
+  </div>
+
+  <!-- 生徒に関する個別連絡 -->
+  <div class="section">
+    <div class="section-title">生徒に関する個別連絡</div>
+    <div class="section-body">
+      <ul class="item-list" id="studentList"></ul>
+      <button class="btn-add" onclick="addStudent()">＋ 生徒連絡を追加</button>
+    </div>
+  </div>
+
+  <!-- 副担任へのメッセージ -->
+  <div class="section">
+    <div class="section-title">副担任への伝言</div>
+    <div class="section-body">
+      <textarea id="message" rows="3" placeholder="その他、副担任の先生に伝えたいこと"></textarea>
+    </div>
+  </div>
+
+  <!-- 確認チェック項目 -->
+  <div class="section">
+    <div class="section-title">確認チェック項目（印刷時にチェック欄として表示）</div>
+    <div class="section-body">
+      <ul class="item-list" id="checkList"></ul>
+      <button class="btn-add" onclick="addCheck()">＋ チェック項目を追加</button>
+    </div>
+  </div>
+
+  <!-- アクション -->
+  <div class="actions">
+    <button class="btn btn-save" onclick="saveDraft()">下書き保存</button>
+    <button class="btn btn-preview" onclick="showPreview()">プレビュー</button>
+  </div>
+  <div style="margin-bottom: 20px;">
+    <button class="btn btn-load" style="width:100%" onclick="showDraftList()">下書き一覧</button>
+  </div>
+</div>
+
+<!-- ===== プレビュー画面 ===== -->
+<div class="preview-overlay" id="previewOverlay">
+  <div class="preview-toolbar">
+    <button class="btn-back" onclick="hidePreview()">← 戻る</button>
+    <span style="font-size:14px;">プレビュー</span>
+    <button class="btn-print" onclick="window.print()">印刷</button>
+  </div>
+  <div class="print-page" id="printArea"></div>
+</div>
+
+<!-- ===== 下書き一覧モーダル ===== -->
+<div class="draft-modal" id="draftModal" onclick="if(event.target===this)closeDraftList()">
+  <div class="draft-modal-content">
+    <div class="draft-modal-header">
+      <h3>下書き一覧</h3>
+      <button onclick="closeDraftList()">&times;</button>
+    </div>
+    <ul class="draft-list" id="draftList"></ul>
+  </div>
+</div>
+
+<!-- ===== インストールバナー ===== -->
+<div class="install-banner" id="installBanner">
+  <div class="install-banner-text">
+    <strong>ホーム画面に追加</strong>
+    アプリとしてすぐに起動できます
+  </div>
+  <button class="btn-dismiss" onclick="dismissInstall()">後で</button>
+  <button class="btn-install" onclick="installApp()">追加</button>
+</div>
+
+<!-- 通知 -->
+<div class="toast" id="toast"></div>
+
+<script>
+// --- Service Worker登録 ---
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js');
+}
+
+// --- PWAインストール ---
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBanner').classList.add('show');
+});
+
+function installApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => {
+    deferredPrompt = null;
+    document.getElementById('installBanner').classList.remove('show');
+  });
+}
+
+function dismissInstall() {
+  document.getElementById('installBanner').classList.remove('show');
+}
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBanner').classList.remove('show');
+  showToast('アプリをインストールしました');
+});
+
+// --- 初期化 ---
+document.addEventListener('DOMContentLoaded', () => {
+  const today = new Date();
+  document.getElementById('printDate').value = formatDateInput(today);
+  updateDayOfWeek();
+  addItem();
+  tryAutoLoad();
+});
+
+document.getElementById('printDate').addEventListener('change', updateDayOfWeek);
+
+function formatDateInput(d) {
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
+
+function updateDayOfWeek() {
+  const v = document.getElementById('printDate').value;
+  if (!v) return;
+  const days = ['日','月','火','水','木','金','土'];
+  const d = new Date(v + 'T00:00:00');
+  const day = days[d.getDay()];
+  const sel = document.getElementById('dayOfWeek');
+  for (let i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].value === day) { sel.selectedIndex = i; break; }
+  }
+}
+
+// --- 連絡事項の追加/削除 ---
+let itemId = 0;
+
+function addItem(text, priority) {
+  text = text || '';
+  priority = priority || 'normal';
+  const li = document.createElement('li');
+  const id = 'item_' + (itemId++);
+  li.id = id;
+  li.dataset.priority = priority;
+
+  const wrapper = document.createElement('div');
+  wrapper.style.flex = '1';
+
+  const ta = document.createElement('textarea');
+  ta.placeholder = '連絡内容を入力';
+  ta.value = text;
+  wrapper.appendChild(ta);
+
+  const ps = document.createElement('div');
+  ps.className = 'priority-selector';
+
+  ['normal', 'important', 'urgent'].forEach(level => {
+    const labels = { normal: '通常', important: '重要', urgent: '緊急' };
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = labels[level];
+    if (priority === level) btn.className = 'active-' + level;
+    btn.addEventListener('click', () => {
+      li.dataset.priority = level;
+      ps.querySelectorAll('button').forEach(b => b.className = '');
+      btn.className = 'active-' + level;
+    });
+    ps.appendChild(btn);
+  });
+  wrapper.appendChild(ps);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'btn-remove';
+  removeBtn.textContent = '×';
+  removeBtn.addEventListener('click', () => li.remove());
+
+  li.appendChild(wrapper);
+  li.appendChild(removeBtn);
+  document.getElementById('itemList').appendChild(li);
+}
+
+function addStudent(text) {
+  text = text || '';
+  const li = document.createElement('li');
+
+  const ta = document.createElement('textarea');
+  ta.style.flex = '1';
+  ta.placeholder = '生徒名と連絡内容\n例: 田中太郎 - 体調不良のため保健室利用の可能性あり';
+  ta.value = text;
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'btn-remove';
+  removeBtn.textContent = '×';
+  removeBtn.addEventListener('click', () => li.remove());
+
+  li.appendChild(ta);
+  li.appendChild(removeBtn);
+  document.getElementById('studentList').appendChild(li);
+}
+
+function addCheck(text) {
+  text = text || '';
+  const li = document.createElement('li');
+
+  const ta = document.createElement('textarea');
+  ta.style.flex = '1';
+  ta.placeholder = '例: 提出物の回収を確認';
+  ta.value = text;
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'btn-remove';
+  removeBtn.textContent = '×';
+  removeBtn.addEventListener('click', () => li.remove());
+
+  li.appendChild(ta);
+  li.appendChild(removeBtn);
+  document.getElementById('checkList').appendChild(li);
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// --- データ収集 ---
+function gatherData() {
+  const periods = ['p1','p2','p3','p4','pLunch','p5','p6','pAfter'];
+  const periodLabels = ['1限','2限','3限','4限','昼休み','5限','6限','放課後'];
+  const timetable = periods.map((id, i) => ({
+    label: periodLabels[i],
+    value: document.getElementById(id).value.trim()
+  }));
+
+  const items = [];
+  document.querySelectorAll('#itemList li').forEach(li => {
+    const text = li.querySelector('textarea').value.trim();
+    if (text) items.push({ text, priority: li.dataset.priority || 'normal' });
+  });
+
+  const students = [];
+  document.querySelectorAll('#studentList li').forEach(li => {
+    const text = li.querySelector('textarea').value.trim();
+    if (text) students.push(text);
+  });
+
+  const checks = [];
+  document.querySelectorAll('#checkList li').forEach(li => {
+    const text = li.querySelector('textarea').value.trim();
+    if (text) checks.push(text);
+  });
+
+  return {
+    date: document.getElementById('printDate').value,
+    dayOfWeek: document.getElementById('dayOfWeek').value,
+    className: document.getElementById('className').value.trim(),
+    teacherName: document.getElementById('teacherName').value.trim(),
+    subTeacher: document.getElementById('subTeacher').value.trim(),
+    timetable,
+    items,
+    students,
+    message: document.getElementById('message').value.trim(),
+    checks
+  };
+}
+
+// --- プレビュー生成 ---
+function showPreview() {
+  const d = gatherData();
+  const dateStr = d.date ? d.date.replace(/-/g, '/') : '';
+
+  let html = '';
+
+  html += '<div class="p-header">';
+  html += '<h2>連　絡　事　項</h2>';
+  html += '<div class="p-meta">';
+  html += '<span>' + escapeHtml(d.className || '＿年＿組') + '</span>';
+  html += '<span>' + escapeHtml(dateStr) + '（' + escapeHtml(d.dayOfWeek) + '）</span>';
+  html += '</div>';
+  html += '<div class="p-meta" style="margin-top:4px;">';
+  html += '<span>担任: ' + escapeHtml(d.teacherName || '＿＿＿') + '</span>';
+  html += '<span>→ ' + escapeHtml(d.subTeacher || '副担任') + ' 先生へ</span>';
+  html += '</div>';
+  html += '</div>';
+
+  var hasTimetable = d.timetable.some(function(t) { return t.value; });
+  if (hasTimetable) {
+    html += '<div class="p-section">';
+    html += '<div class="p-section-title">本日の時間割</div>';
+    html += '<table class="p-timetable">';
+    d.timetable.forEach(function(t) {
+      if (t.value) {
+        html += '<tr><th>' + escapeHtml(t.label) + '</th><td style="text-align:left">' + escapeHtml(t.value) + '</td></tr>';
+      }
+    });
+    html += '</table></div>';
+  }
+
+  if (d.items.length > 0) {
+    var order = { urgent: 0, important: 1, normal: 2 };
+    var sorted = d.items.slice().sort(function(a,b) { return order[a.priority] - order[b.priority]; });
+
+    html += '<div class="p-section">';
+    html += '<div class="p-section-title">連絡事項</div>';
+    html += '<ul class="p-items">';
+    sorted.forEach(function(item) {
+      html += '<li class="' + item.priority + '">' + escapeHtml(item.text) + '</li>';
+    });
+    html += '</ul></div>';
+  }
+
+  if (d.students.length > 0) {
+    html += '<div class="p-section">';
+    html += '<div class="p-section-title">生徒に関する個別連絡</div>';
+    html += '<ul class="p-items">';
+    d.students.forEach(function(s) {
+      html += '<li>' + escapeHtml(s) + '</li>';
+    });
+    html += '</ul></div>';
+  }
+
+  if (d.message) {
+    html += '<div class="p-section">';
+    html += '<div class="p-section-title">副担任への伝言</div>';
+    html += '<div class="p-note">' + escapeHtml(d.message) + '</div>';
+    html += '</div>';
+  }
+
+  if (d.checks.length > 0) {
+    html += '<div class="p-confirm">';
+    html += '<div class="p-confirm-title">確認チェック欄（副担任記入）</div>';
+    html += '<div class="p-confirm-boxes">';
+    d.checks.forEach(function(c) {
+      html += '<div class="p-confirm-box"><span class="checkbox"></span>' + escapeHtml(c) + '</div>';
+    });
+    html += '</div></div>';
+  }
+
+  html += '<div class="p-footer">';
+  html += '作成日時: ' + new Date().toLocaleString('ja-JP');
+  html += '</div>';
+
+  document.getElementById('printArea').innerHTML = html;
+  document.getElementById('previewOverlay').classList.add('show');
+  window.scrollTo(0, 0);
+}
+
+function hidePreview() {
+  document.getElementById('previewOverlay').classList.remove('show');
+}
+
+// --- 下書き保存/読み込み (localStorage) ---
+function saveDraft() {
+  var data = gatherData();
+  var key = 'renraku_draft_' + (data.date || 'nodate');
+  data._savedAt = new Date().toISOString();
+  localStorage.setItem(key, JSON.stringify(data));
+  showToast('下書きを保存しました');
+}
+
+function getDraftKeys() {
+  var keys = [];
+  for (var i = 0; i < localStorage.length; i++) {
+    var k = localStorage.key(i);
+    if (k && k.indexOf('renraku_draft_') === 0) keys.push(k);
+  }
+  keys.sort().reverse();
+  return keys;
+}
+
+function showDraftList() {
+  var keys = getDraftKeys();
+  var list = document.getElementById('draftList');
+  list.innerHTML = '';
+
+  if (keys.length === 0) {
+    list.innerHTML = '<li class="draft-empty">保存された下書きはありません</li>';
+  } else {
+    keys.forEach(function(key) {
+      var raw = localStorage.getItem(key);
+      if (!raw) return;
+      var d = JSON.parse(raw);
+      var li = document.createElement('li');
+
+      var info = document.createElement('div');
+      info.className = 'draft-list-info';
+      var dateLabel = d.date ? d.date.replace(/-/g, '/') + '（' + (d.dayOfWeek || '') + '）' : '日付なし';
+      var classLabel = d.className || '';
+      var itemCount = (d.items ? d.items.length : 0) + '件';
+      info.innerHTML = '<span>' + escapeHtml(dateLabel) + ' ' + escapeHtml(classLabel) + '</span>' +
+        '<small>連絡事項 ' + escapeHtml(itemCount) + '</small>';
+
+      info.addEventListener('click', function() {
+        restoreData(d);
+        closeDraftList();
+        showToast('下書きを読み込みました');
+      });
+
+      var del = document.createElement('button');
+      del.className = 'draft-list-del';
+      del.textContent = '🗑';
+      del.addEventListener('click', function(e) {
+        e.stopPropagation();
+        localStorage.removeItem(key);
+        li.remove();
+        if (list.children.length === 0) {
+          list.innerHTML = '<li class="draft-empty">保存された下書きはありません</li>';
+        }
+        showToast('削除しました');
+      });
+
+      li.appendChild(info);
+      li.appendChild(del);
+      list.appendChild(li);
+    });
+  }
+
+  document.getElementById('draftModal').classList.add('show');
+}
+
+function closeDraftList() {
+  document.getElementById('draftModal').classList.remove('show');
+}
+
+function tryAutoLoad() {
+  var saved = localStorage.getItem('renraku_userinfo');
+  if (saved) {
+    var info = JSON.parse(saved);
+    if (info.className) document.getElementById('className').value = info.className;
+    if (info.teacherName) document.getElementById('teacherName').value = info.teacherName;
+    if (info.subTeacher) document.getElementById('subTeacher').value = info.subTeacher;
+  }
+}
+
+window.addEventListener('beforeunload', function() {
+  var info = {
+    className: document.getElementById('className').value,
+    teacherName: document.getElementById('teacherName').value,
+    subTeacher: document.getElementById('subTeacher').value,
+  };
+  localStorage.setItem('renraku_userinfo', JSON.stringify(info));
+});
+
+function restoreData(d) {
+  if (d.date) document.getElementById('printDate').value = d.date;
+  if (d.dayOfWeek) {
+    var sel = document.getElementById('dayOfWeek');
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === d.dayOfWeek) { sel.selectedIndex = i; break; }
+    }
+  }
+  if (d.className) document.getElementById('className').value = d.className;
+  if (d.teacherName) document.getElementById('teacherName').value = d.teacherName;
+  if (d.subTeacher) document.getElementById('subTeacher').value = d.subTeacher;
+
+  var periods = ['p1','p2','p3','p4','pLunch','p5','p6','pAfter'];
+  if (d.timetable) {
+    d.timetable.forEach(function(t, i) {
+      if (periods[i]) document.getElementById(periods[i]).value = t.value || '';
+    });
+  }
+
+  document.getElementById('itemList').innerHTML = '';
+  if (d.items && d.items.length > 0) {
+    d.items.forEach(function(item) { addItem(item.text, item.priority); });
+  } else {
+    addItem();
+  }
+
+  document.getElementById('studentList').innerHTML = '';
+  if (d.students) d.students.forEach(function(s) { addStudent(s); });
+
+  document.getElementById('checkList').innerHTML = '';
+  if (d.checks) d.checks.forEach(function(c) { addCheck(c); });
+
+  document.getElementById('message').value = d.message || '';
+}
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2000);
+}
+
+// --- 自動保存（30秒ごと） ---
+setInterval(function() {
+  var data = gatherData();
+  var hasContent = data.items.length > 0 || data.students.length > 0 || data.message;
+  if (hasContent) {
+    var key = 'renraku_draft_' + (data.date || 'nodate');
+    data._savedAt = new Date().toISOString();
+    data._auto = true;
+    localStorage.setItem(key, JSON.stringify(data));
+  }
+}, 30000);
+</script>
+</body>
+</html>

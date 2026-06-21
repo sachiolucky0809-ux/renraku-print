@@ -1,0 +1,24 @@
+{
+  "name": "連絡事項プリント作成",
+  "short_name": "連絡プリント",
+  "description": "副担任への連絡事項プリントをスマホで作成",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f7f8fa",
+  "theme_color": "#2c5f8a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
