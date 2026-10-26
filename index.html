@@ -691,10 +691,7 @@
   <div class="preview-toolbar">
     <button class="btn-back" onclick="hidePreview()">← 戻る</button>
     <span style="font-size:14px;">プレビュー</span>
-    <span>
-      <button class="btn-back" id="btnPrintAlt" type="button">別画面</button>
-      <button class="btn-print" id="btnPrint" type="button">印刷</button>
-    </span>
+    <button class="btn-print" id="btnPrint" type="button">印刷</button>
   </div>
   <div class="print-page" id="printArea"></div>
 </div>
@@ -1009,6 +1006,9 @@ function showPreview() {
 // 印刷: 通常は window.print()。ホーム画面アプリ(iOS)では効かないことがあるため、
 // 印刷用の別ページを開く方法もあわせて用意する
 function printPage() {
+  var standalone = window.navigator.standalone ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  if (standalone) { openPrintWindow(); return; }
   try { window.print(); } catch (e) { openPrintWindow(); }
 }
 
@@ -1019,7 +1019,9 @@ function openPrintWindow() {
   w.document.open();
   w.document.write('<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
-    '<title>連絡事項</title><style>' + css + '</style></head><body style="background:#fff">' +
+    '<title>連絡事項</title><style>' + css + '@media print{.hint{display:none!important}}</style></head><body style="background:#fff">' +
+    '<div class="hint" style="background:#fff3cd;padding:10px 14px;font-size:14px;line-height:1.5">' +
+    '印刷するには、画面下（または上）の <b>共有ボタン</b> →「<b>プリント</b>」を選びます。</div>' +
     '<div class="print-page" style="box-shadow:none;margin:0 auto">' +
     document.getElementById('printArea').innerHTML + '</div></body></html>');
   w.document.close();
@@ -1027,7 +1029,6 @@ function openPrintWindow() {
 }
 
 document.getElementById('btnPrint').addEventListener('click', printPage);
-document.getElementById('btnPrintAlt').addEventListener('click', openPrintWindow);
 
 function hidePreview() {
   document.getElementById('previewOverlay').classList.remove('show');
