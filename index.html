@@ -1015,8 +1015,7 @@ function printPage() {
 function openPrintWindow() {
   var w = window.open('', '_blank');
   if (!w) { showToast('別画面を開けませんでした'); return; }
-  var css = Array.prototype.map.call(document.querySelectorAll('style'), function(st) { return st.textContent; }).join('
-');
+  var css = Array.prototype.map.call(document.querySelectorAll('style'), function(st) { return st.textContent; }).join(' ');
   w.document.open();
   w.document.write('<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
