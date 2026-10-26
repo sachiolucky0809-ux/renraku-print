@@ -635,6 +635,7 @@
         <tr><th>昼休</th><td><input type="text" id="pLunch" placeholder="特記事項があれば"></td></tr>
         <tr><th>5限</th><td><input type="text" id="p5" placeholder="教科・内容"></td></tr>
         <tr><th>6限</th><td><input type="text" id="p6" placeholder="教科・内容"></td></tr>
+        <tr><th>7限</th><td><input type="text" id="p7" placeholder="教科・内容"></td></tr>
         <tr><th>放課後</th><td><input type="text" id="pAfter" placeholder="清掃・部活動など"></td></tr>
       </table>
     </div>
@@ -690,7 +691,10 @@
   <div class="preview-toolbar">
     <button class="btn-back" onclick="hidePreview()">← 戻る</button>
     <span style="font-size:14px;">プレビュー</span>
-    <button class="btn-print" onclick="window.print()">印刷</button>
+    <span>
+      <button class="btn-back" id="btnPrintAlt" type="button">別画面</button>
+      <button class="btn-print" id="btnPrint" type="button">印刷</button>
+    </span>
   </div>
   <div class="print-page" id="printArea"></div>
 </div>
@@ -872,13 +876,21 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
+// --- 時間割の枠（表示順） ---
+const PERIODS = [
+  { id: 'p1', label: '1限' }, { id: 'p2', label: '2限' },
+  { id: 'p3', label: '3限' }, { id: 'p4', label: '4限' },
+  { id: 'pLunch', label: '昼休み' },
+  { id: 'p5', label: '5限' }, { id: 'p6', label: '6限' },
+  { id: 'p7', label: '7限' }, { id: 'pAfter', label: '放課後' }
+];
+
 // --- データ収集 ---
 function gatherData() {
-  const periods = ['p1','p2','p3','p4','pLunch','p5','p6','pAfter'];
-  const periodLabels = ['1限','2限','3限','4限','昼休み','5限','6限','放課後'];
-  const timetable = periods.map((id, i) => ({
-    label: periodLabels[i],
-    value: document.getElementById(id).value.trim()
+  const timetable = PERIODS.map(p => ({
+    id: p.id,
+    label: p.label,
+    value: document.getElementById(p.id).value.trim()
   }));
 
   const items = [];
@@ -994,6 +1006,30 @@ function showPreview() {
   window.scrollTo(0, 0);
 }
 
+// 印刷: 通常は window.print()。ホーム画面アプリ(iOS)では効かないことがあるため、
+// 印刷用の別ページを開く方法もあわせて用意する
+function printPage() {
+  try { window.print(); } catch (e) { openPrintWindow(); }
+}
+
+function openPrintWindow() {
+  var w = window.open('', '_blank');
+  if (!w) { showToast('別画面を開けませんでした'); return; }
+  var css = Array.prototype.map.call(document.querySelectorAll('style'), function(st) { return st.textContent; }).join('
+');
+  w.document.open();
+  w.document.write('<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+    '<title>連絡事項</title><style>' + css + '</style></head><body style="background:#fff">' +
+    '<div class="print-page" style="box-shadow:none;margin:0 auto">' +
+    document.getElementById('printArea').innerHTML + '</div></body></html>');
+  w.document.close();
+  setTimeout(function() { w.focus(); w.print(); }, 500);
+}
+
+document.getElementById('btnPrint').addEventListener('click', printPage);
+document.getElementById('btnPrintAlt').addEventListener('click', openPrintWindow);
+
 function hidePreview() {
   document.getElementById('previewOverlay').classList.remove('show');
 }
@@ -1102,10 +1138,12 @@ function restoreData(d) {
   if (d.teacherName) document.getElementById('teacherName').value = d.teacherName;
   if (d.subTeacher) document.getElementById('subTeacher').value = d.subTeacher;
 
-  var periods = ['p1','p2','p3','p4','pLunch','p5','p6','pAfter'];
+  // ラベルで対応づける（7限追加前の下書きは位置がずれるため）
+  PERIODS.forEach(function(p) { document.getElementById(p.id).value = ''; });
   if (d.timetable) {
-    d.timetable.forEach(function(t, i) {
-      if (periods[i]) document.getElementById(periods[i]).value = t.value || '';
+    d.timetable.forEach(function(t) {
+      var p = PERIODS.filter(function(x) { return x.label === t.label; })[0];
+      if (p) document.getElementById(p.id).value = t.value || '';
     });
   }
 
