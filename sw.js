@@ -1,10 +1,12 @@
-const CACHE_NAME = 'renraku-v3';
+const CACHE_NAME = 'renraku-v4';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icon-192.svg',
-  './icon-512.svg'
+  './icon-512.svg',
+  './lib/html2canvas.min.js',
+  './lib/jspdf.umd.min.js'
 ];
 
 self.addEventListener('install', e => {

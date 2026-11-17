@@ -283,6 +283,7 @@
   }
   .btn-back { background: #666; color: #fff; }
   .btn-print { background: #4caf50; color: #fff; }
+  .btn-print:disabled { background: #9e9e9e; }
 
   /* 印刷用紙面 */
   .print-page {
@@ -582,7 +583,7 @@
 
 <!-- ===== 入力画面 ===== -->
 <header class="app-header">
-  <h1>連絡事項プリント作成 <small style="font-weight:400;font-size:11px">v3</small></h1>
+  <h1>連絡事項プリント作成 <small style="font-weight:400;font-size:11px">v4</small></h1>
 </header>
 
 <div class="editor" id="editor">
@@ -1001,31 +1002,141 @@ function showPreview() {
   document.getElementById('printArea').innerHTML = html;
   document.getElementById('previewOverlay').classList.add('show');
   window.scrollTo(0, 0);
+  preparePdfIfNeeded();
 }
 
-// 印刷: 通常は window.print()。ホーム画面アプリ(iOS)では効かないことがあるため、
-// 印刷用の別ページを開く方法もあわせて用意する
+// 印刷:
+// ・通常のブラウザ … window.print()
+// ・ホーム画面アプリ(iOS) … window.print() も別画面も使えないため、
+//   PDF を作って共有シートを開く（共有シート →「プリント」で印刷）
+function isStandalone() {
+  return !!(window.navigator.standalone ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
+}
+
+var pdfState = { file: null, promise: null, html: null };
+
+function loadScript(src) {
+  return new Promise(function(resolve, reject) {
+    var el = document.createElement('script');
+    el.src = src;
+    el.onload = resolve;
+    el.onerror = function() { reject(new Error('load failed: ' + src)); };
+    document.head.appendChild(el);
+  });
+}
+
+function loadPdfLibs() {
+  var jobs = [];
+  if (!window.html2canvas) jobs.push(loadScript('./lib/html2canvas.min.js'));
+  if (!(window.jspdf && window.jspdf.jsPDF)) jobs.push(loadScript('./lib/jspdf.umd.min.js'));
+  return Promise.all(jobs);
+}
+
+// プレビューの内容から A4 の PDF を作る
+function buildPdf() {
+  var html = document.getElementById('printArea').innerHTML;
+  if (pdfState.html === html && (pdfState.file || pdfState.promise)) {
+    return pdfState.promise || Promise.resolve(pdfState.file);
+  }
+  pdfState.html = html;
+  pdfState.file = null;
+  var p = loadPdfLibs().then(function() {
+    // A4 幅(210mm ≒ 794px)で画面外に描画
+    var box = document.createElement('div');
+    box.className = 'print-page';
+    box.style.cssText = 'position:absolute;left:-10000px;top:0;width:794px;min-height:0;' +
+      'margin:0;padding:45px 57px;box-shadow:none;font-size:11pt;background:#fff;';
+    box.innerHTML = html;
+    document.body.appendChild(box);
+    return window.html2canvas(box, {
+      scale: 2.5, backgroundColor: '#ffffff', windowWidth: 1000, logging: false
+    }).then(function(canvas) {
+      document.body.removeChild(box);
+      return canvas;
+    }, function(err) {
+      document.body.removeChild(box);
+      throw err;
+    });
+  }).then(function(canvas) {
+    var pdf = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    var pageW = 210, pageH = 297;
+    var pxPerMm = canvas.width / pageW;
+    var pagePx = Math.floor(pageH * pxPerMm);
+    var y = 0, first = true;
+    while (y < canvas.height) {
+      var h = Math.min(pagePx, canvas.height - y);
+      var c = document.createElement('canvas');
+      c.width = canvas.width;
+      c.height = h;
+      var ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+      if (!first) pdf.addPage();
+      pdf.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pageW, h / pxPerMm);
+      first = false;
+      y += pagePx;
+    }
+    var name = '連絡事項_' + (document.getElementById('printDate').value || 'print') + '.pdf';
+    var file = new File([pdf.output('blob')], name, { type: 'application/pdf' });
+    if (pdfState.promise === p) { pdfState.file = file; pdfState.promise = null; }
+    return file;
+  });
+  pdfState.promise = p;
+  p.catch(function() { if (pdfState.promise === p) { pdfState.promise = null; pdfState.html = null; } });
+  return p;
+}
+
+function updatePrintButton() {
+  var btn = document.getElementById('btnPrint');
+  if (!isStandalone()) { btn.textContent = '印刷'; btn.disabled = false; return; }
+  if (pdfState.file) { btn.textContent = '印刷'; btn.disabled = false; }
+  else { btn.textContent = '準備中…'; btn.disabled = true; }
+}
+
+// ホーム画面アプリではプレビューを開いた時点で PDF を用意しておく
+// （共有シートはタップ直後にしか開けないため）
+function preparePdfIfNeeded() {
+  if (!isStandalone()) { updatePrintButton(); return; }
+  updatePrintButton();
+  buildPdf().then(updatePrintButton, function(err) {
+    console.error(err);
+    var btn = document.getElementById('btnPrint');
+    btn.textContent = '再試行';
+    btn.disabled = false;
+    showToast('PDFの作成に失敗しました');
+  });
+}
+
+function sharePdf(file) {
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file], title: '連絡事項' }).catch(function(err) {
+      if (err && err.name !== 'AbortError') downloadPdf(file);
+    });
+  } else {
+    downloadPdf(file);
+  }
+}
+
+function downloadPdf(file) {
+  var url = URL.createObjectURL(file);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = file.name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+}
+
 function printPage() {
-  var standalone = window.navigator.standalone ||
-    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-  if (standalone) { openPrintWindow(); return; }
-  try { window.print(); } catch (e) { openPrintWindow(); }
-}
-
-function openPrintWindow() {
-  var w = window.open('', '_blank');
-  if (!w) { showToast('別画面を開けませんでした'); return; }
-  var css = Array.prototype.map.call(document.querySelectorAll('style'), function(st) { return st.textContent; }).join(' ');
-  w.document.open();
-  w.document.write('<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">' +
-    '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
-    '<title>連絡事項</title><style>' + css + '@media print{.hint{display:none!important}}</style></head><body style="background:#fff">' +
-    '<div class="hint" style="background:#fff3cd;padding:10px 14px;font-size:14px;line-height:1.5">' +
-    '印刷するには、画面下（または上）の <b>共有ボタン</b> →「<b>プリント</b>」を選びます。</div>' +
-    '<div class="print-page" style="box-shadow:none;margin:0 auto">' +
-    document.getElementById('printArea').innerHTML + '</div></body></html>');
-  w.document.close();
-  setTimeout(function() { w.focus(); w.print(); }, 500);
+  if (!isStandalone()) { window.print(); return; }
+  if (pdfState.file && pdfState.html === document.getElementById('printArea').innerHTML) {
+    sharePdf(pdfState.file);
+  } else {
+    preparePdfIfNeeded();
+  }
 }
 
 document.getElementById('btnPrint').addEventListener('click', printPage);
